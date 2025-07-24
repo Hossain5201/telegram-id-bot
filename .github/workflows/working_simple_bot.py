@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+import requests
+import time
+
+# আপনার বট টোকেন
+BOT_TOKEN = '7749655099:AAFuW7m4Vmx3jAbLLqpHfu9-PQ1lj3OUhKw'
+API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+
+def send_message(chat_id, text):
+    url = f"{API_URL}/sendMessage"
+    data = {'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML'}
+    
+    try:
+        response = requests.post(url, data=data, timeout=10)
+        return response.json()
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+def get_updates(offset=None):
+    url = f"{API_URL}/getUpdates"
+    params = {'timeout': 30}
+    if offset:
+        params['offset'] = offset
+    
+    try:
+        response = requests.get(url, params=params, timeout=35)
+        return response.json()
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+def process_message(message):
+    chat_id = message['chat']['id']
+    user = message['from']
+    text = message.get('text', '').strip()
+    
+    user_id = user['id']
+    first_name = user.get('first_name', '')
+    last_name = user.get('last_name', '')
+    username = user.get('username', 'No username')
+    
+    if text in ['/start', '/id']:
+        response = f"""🆔 <b>আপনার টেলিগ্রাম তথ্য:</b>
+
+👤 <b>নাম:</b> {first_name} {last_name}
+🔢 <b>ইউজার আইডি:</b> <code>{user_id}</code>
+👥 <b>ইউজারনেম:</b> @{username}
+
+✅ <b>আপনার ইউনিক টেলিগ্রাম আইডি: {user_id}</b>"""
+        
+    elif text == '/help':
+        response = """📱 <b>টেলিগ্রাম আইডি ফাইন্ডার বট</b>
+
+<b>কমান্ডসমূহ:</b>
+/start - আপনার টেলিগ্রাম আইডি পান
+/id - শুধু আইডি নম্বর দেখান
+/help - এই সাহায্য দেখান"""
+    
+    else:
+        response = "হ্যালো! 👋\n\nআপনার টেলিগ্রাম আইডি পেতে /start পাঠান!"
+    
+    send_message(chat_id, response)
+    print(f"✅ Response sent to user {user_id} ({first_name})")
+
+def main():
+    print("🤖 Bot starting...")
+    
+    # Test connection
+    test_url = f"{API_URL}/getMe"
+    try:
+        response = requests.get(test_url, timeout=10)
+        if response.status_code == 200:
+            bot_info = response.json()
+            if bot_info.get('ok'):
+                print(f"✅ Bot connected: @{bot_info['result']['username']}")
+            else:
+                print("❌ Invalid bot token!")
+                return
+        else:
+            print("❌ Connection failed!")
+            return
+    except Exception as e:
+        print(f"❌ Connection error: {e}")
+        return
+    
+    offset = None
+    print("🚀 Bot is running! Send /start to get your ID")
+    
+    while True:
+        try:
+            updates = get_updates(offset)
+            
+            if updates and updates.get('ok'):
+                for update in updates['result']:
+                    if 'message' in update:
+                        process_message(update['message'])
+                    offset = update['update_id'] + 1
+            
+            time.sleep(1)
+            
+        except KeyboardInterrupt:
+            print("\n👋 Bot stopped")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            time.sleep(5)
+
+if __name__ == '__main__':
+    main()
